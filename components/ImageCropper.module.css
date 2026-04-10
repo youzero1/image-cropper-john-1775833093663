@@ -61,6 +61,114 @@
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 
+/* ── Free-mode styles ── */
+
+.freeImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.freeOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlayTop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.overlayBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.overlayMiddle {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.overlayLeft {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.overlayRight {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.freeBox {
+  position: absolute;
+  border: 2px solid #fff;
+  box-sizing: border-box;
+  cursor: move;
+  /* keep box on top */
+  z-index: 10;
+}
+
+.gridLine {
+  background: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+}
+
+/* Handles */
+.handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid #667eea;
+  border-radius: 3px;
+  z-index: 20;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+/* Corner handles */
+.handle-nw { top: -7px;    left: -7px;   }
+.handle-ne { top: -7px;    right: -7px;  }
+.handle-sw { bottom: -7px; left: -7px;   }
+.handle-se { bottom: -7px; right: -7px;  }
+
+/* Edge handles — centred on each side */
+.handle-n  { top: -7px;    left: 50%; transform: translateX(-50%); }
+.handle-s  { bottom: -7px; left: 50%; transform: translateX(-50%); }
+.handle-w  { left: -7px;   top: 50%;  transform: translateY(-50%); }
+.handle-e  { right: -7px;  top: 50%;  transform: translateY(-50%); }
+
+.freeHint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #aaa;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+/* ── Controls ── */
+
 .controls {
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);

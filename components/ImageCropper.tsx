@@ -42,6 +42,21 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string>
   });
 }
 
+// Resize handle positions
+const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
+type Handle = typeof HANDLES[number];
+
+interface FreeBox {
+  x: number; // percent of container
+  y: number;
+  w: number;
+  h: number;
+}
+
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
+}
+
 export default function ImageCropper() {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('cropped-image');
@@ -53,6 +68,13 @@ export default function ImageCropper() {
   const [aspectIndex, setAspectIndex] = useState<number>(0);
   const [isCropping, setIsCropping] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Free mode state
+  const [freeBox, setFreeBox] = useState<FreeBox>({ x: 10, y: 10, w: 80, h: 80 });
+  const freeDragRef = useRef<{ type: 'move' | Handle; startX: number; startY: number; box: FreeBox } | null>(null);
+  const freeContainerRef = useRef<HTMLDivElement>(null);
+
+  const isFreeMode = ASPECT_OPTIONS[aspectIndex].value === 0;
 
   const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -67,6 +89,7 @@ export default function ImageCropper() {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setRotation(0);
+    setFreeBox({ x: 10, y: 10, w: 80, h: 80 });
     const reader = new FileReader();
     reader.onload = () => {
       setImageSrc(reader.result as string);
@@ -75,7 +98,44 @@ export default function ImageCropper() {
   }, []);
 
   const handleCrop = useCallback(async () => {
-    if (!imageSrc || !croppedAreaPixels) return;
+    if (!imageSrc) return;
+
+    if (isFreeMode) {
+      // Use freeBox to crop
+      const container = freeContainerRef.current;
+      if (!container) return;
+      setIsCropping(true);
+      try {
+        const img = new window.Image();
+        img.src = imageSrc;
+        await new Promise<void>((res) => { img.onload = () => res(); });
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
+        // Box in pixel coords of container
+        const bx = (freeBox.x / 100) * cw;
+        const by = (freeBox.y / 100) * ch;
+        const bw = (freeBox.w / 100) * cw;
+        const bh = (freeBox.h / 100) * ch;
+        // Map to image coords
+        const scaleX = img.naturalWidth / cw;
+        const scaleY = img.naturalHeight / ch;
+        const area: Area = {
+          x: bx * scaleX,
+          y: by * scaleY,
+          width: bw * scaleX,
+          height: bh * scaleY,
+        };
+        const url = await getCroppedImg(imageSrc, area);
+        setCroppedImageUrl(url);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsCropping(false);
+      }
+      return;
+    }
+
+    if (!croppedAreaPixels) return;
     setIsCropping(true);
     try {
       const url = await getCroppedImg(imageSrc, croppedAreaPixels);
@@ -85,7 +145,7 @@ export default function ImageCropper() {
     } finally {
       setIsCropping(false);
     }
-  }, [imageSrc, croppedAreaPixels]);
+  }, [imageSrc, croppedAreaPixels, isFreeMode, freeBox]);
 
   const handleDownload = useCallback(() => {
     if (!croppedImageUrl) return;
@@ -101,11 +161,162 @@ export default function ImageCropper() {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setRotation(0);
+    setFreeBox({ x: 10, y: 10, w: 80, h: 80 });
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
+  // Free mode mouse/touch handlers
+  const onHandleMouseDown = useCallback((e: React.MouseEvent, handle: Handle) => {
+    e.preventDefault();
+    e.stopPropagation();
+    freeDragRef.current = { type: handle, startX: e.clientX, startY: e.clientY, box: { ...freeBox } };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!freeDragRef.current || !freeContainerRef.current) return;
+      const container = freeContainerRef.current;
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const dx = ((ev.clientX - freeDragRef.current.startX) / cw) * 100;
+      const dy = ((ev.clientY - freeDragRef.current.startY) / ch) * 100;
+      const orig = freeDragRef.current.box;
+      let { x, y, w, h } = orig;
+      const minSize = 5;
+
+      const type = freeDragRef.current.type;
+      if (type === 'move') {
+        x = clamp(orig.x + dx, 0, 100 - orig.w);
+        y = clamp(orig.y + dy, 0, 100 - orig.h);
+      } else {
+        if (type.includes('e')) {
+          w = clamp(orig.w + dx, minSize, 100 - orig.x);
+        }
+        if (type.includes('w')) {
+          const newW = clamp(orig.w - dx, minSize, orig.x + orig.w);
+          x = orig.x + orig.w - newW;
+          w = newW;
+        }
+        if (type.includes('s')) {
+          h = clamp(orig.h + dy, minSize, 100 - orig.y);
+        }
+        if (type.includes('n')) {
+          const newH = clamp(orig.h - dy, minSize, orig.y + orig.h);
+          y = orig.y + orig.h - newH;
+          h = newH;
+        }
+      }
+      setFreeBox({ x, y, w, h });
+    };
+
+    const onUp = () => {
+      freeDragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [freeBox]);
+
+  const onBoxMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    freeDragRef.current = { type: 'move', startX: e.clientX, startY: e.clientY, box: { ...freeBox } };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!freeDragRef.current || !freeContainerRef.current) return;
+      const container = freeContainerRef.current;
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const dx = ((ev.clientX - freeDragRef.current.startX) / cw) * 100;
+      const dy = ((ev.clientY - freeDragRef.current.startY) / ch) * 100;
+      const orig = freeDragRef.current.box;
+      setFreeBox({
+        x: clamp(orig.x + dx, 0, 100 - orig.w),
+        y: clamp(orig.y + dy, 0, 100 - orig.h),
+        w: orig.w,
+        h: orig.h,
+      });
+    };
+
+    const onUp = () => {
+      freeDragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [freeBox]);
+
+  // Touch handlers for free mode
+  const onHandleTouchStart = useCallback((e: React.TouchEvent, handle: Handle) => {
+    e.stopPropagation();
+    const touch = e.touches[0];
+    freeDragRef.current = { type: handle, startX: touch.clientX, startY: touch.clientY, box: { ...freeBox } };
+
+    const onMove = (ev: TouchEvent) => {
+      if (!freeDragRef.current || !freeContainerRef.current) return;
+      const t = ev.touches[0];
+      const container = freeContainerRef.current;
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const dx = ((t.clientX - freeDragRef.current.startX) / cw) * 100;
+      const dy = ((t.clientY - freeDragRef.current.startY) / ch) * 100;
+      const orig = freeDragRef.current.box;
+      let { x, y, w, h } = orig;
+      const minSize = 5;
+      const type = freeDragRef.current.type;
+      if (type === 'move') {
+        x = clamp(orig.x + dx, 0, 100 - orig.w);
+        y = clamp(orig.y + dy, 0, 100 - orig.h);
+      } else {
+        if (type.includes('e')) w = clamp(orig.w + dx, minSize, 100 - orig.x);
+        if (type.includes('w')) { const nw = clamp(orig.w - dx, minSize, orig.x + orig.w); x = orig.x + orig.w - nw; w = nw; }
+        if (type.includes('s')) h = clamp(orig.h + dy, minSize, 100 - orig.y);
+        if (type.includes('n')) { const nh = clamp(orig.h - dy, minSize, orig.y + orig.h); y = orig.y + orig.h - nh; h = nh; }
+      }
+      setFreeBox({ x, y, w, h });
+    };
+    const onEnd = () => {
+      freeDragRef.current = null;
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+  }, [freeBox]);
+
+  const onBoxTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    freeDragRef.current = { type: 'move', startX: touch.clientX, startY: touch.clientY, box: { ...freeBox } };
+    const onMove = (ev: TouchEvent) => {
+      if (!freeDragRef.current || !freeContainerRef.current) return;
+      const t = ev.touches[0];
+      const container = freeContainerRef.current;
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const dx = ((t.clientX - freeDragRef.current.startX) / cw) * 100;
+      const dy = ((t.clientY - freeDragRef.current.startY) / ch) * 100;
+      const orig = freeDragRef.current.box;
+      setFreeBox({ x: clamp(orig.x + dx, 0, 100 - orig.w), y: clamp(orig.y + dy, 0, 100 - orig.h), w: orig.w, h: orig.h });
+    };
+    const onEnd = () => {
+      freeDragRef.current = null;
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+  }, [freeBox]);
+
   const selectedAspect = ASPECT_OPTIONS[aspectIndex];
   const aspectValue = selectedAspect.value === 0 ? undefined : selectedAspect.value;
+
+  const getCursor = (handle: Handle): string => {
+    const map: Record<Handle, string> = {
+      nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
+      e: 'e-resize', se: 'se-resize', s: 's-resize',
+      sw: 'sw-resize', w: 'w-resize',
+    };
+    return map[handle];
+  };
 
   return (
     <div className={styles.container}>
@@ -131,17 +342,65 @@ export default function ImageCropper() {
       ) : (
         <div className={styles.editorWrapper}>
           <div className={styles.cropSection}>
-            <div className={styles.cropContainer}>
-              <Cropper
-                image={imageSrc}
-                crop={crop}
-                zoom={zoom}
-                rotation={rotation}
-                aspect={aspectValue}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-              />
+            <div className={styles.cropContainer} ref={isFreeMode ? freeContainerRef : undefined}>
+              {isFreeMode ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageSrc} alt="source" className={styles.freeImage} draggable={false} />
+                  {/* Dark overlay */}
+                  <div className={styles.freeOverlay}>
+                    {/* Top strip */}
+                    <div className={styles.overlayTop} style={{ height: `${freeBox.y}%` }} />
+                    {/* Middle row */}
+                    <div className={styles.overlayMiddle} style={{ top: `${freeBox.y}%`, height: `${freeBox.h}%` }}>
+                      <div className={styles.overlayLeft} style={{ width: `${freeBox.x}%` }} />
+                      <div className={styles.overlayRight} style={{ left: `${freeBox.x + freeBox.w}%` }} />
+                    </div>
+                    {/* Bottom strip */}
+                    <div className={styles.overlayBottom} style={{ top: `${freeBox.y + freeBox.h}%` }} />
+                  </div>
+                  {/* Crop box */}
+                  <div
+                    className={styles.freeBox}
+                    style={{
+                      left: `${freeBox.x}%`,
+                      top: `${freeBox.y}%`,
+                      width: `${freeBox.w}%`,
+                      height: `${freeBox.h}%`,
+                    }}
+                    onMouseDown={onBoxMouseDown}
+                    onTouchStart={onBoxTouchStart}
+                  >
+                    {/* Rule-of-thirds grid lines */}
+                    <div className={styles.gridLine} style={{ position: 'absolute', left: '33.33%', top: 0, bottom: 0, width: '1px' }} />
+                    <div className={styles.gridLine} style={{ position: 'absolute', left: '66.66%', top: 0, bottom: 0, width: '1px' }} />
+                    <div className={styles.gridLine} style={{ position: 'absolute', top: '33.33%', left: 0, right: 0, height: '1px' }} />
+                    <div className={styles.gridLine} style={{ position: 'absolute', top: '66.66%', left: 0, right: 0, height: '1px' }} />
+
+                    {/* Resize handles */}
+                    {HANDLES.map((handle) => (
+                      <div
+                        key={handle}
+                        className={`${styles.handle} ${styles[`handle-${handle}`]}`}
+                        style={{ cursor: getCursor(handle) }}
+                        onMouseDown={(e) => onHandleMouseDown(e, handle)}
+                        onTouchStart={(e) => onHandleTouchStart(e, handle)}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <Cropper
+                  image={imageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  rotation={rotation}
+                  aspect={aspectValue}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
+                />
+              )}
             </div>
 
             <div className={styles.controls}>
@@ -160,31 +419,46 @@ export default function ImageCropper() {
                 </div>
               </div>
 
-              <div className={styles.controlGroup}>
-                <label className={styles.controlLabel}>Zoom: {zoom.toFixed(1)}x</label>
-                <input
-                  type="range"
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  value={zoom}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setZoom(Number(e.target.value))}
-                  className={styles.slider}
-                />
-              </div>
+              {!isFreeMode && (
+                <>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Zoom: {zoom.toFixed(1)}x</label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={3}
+                      step={0.1}
+                      value={zoom}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setZoom(Number(e.target.value))}
+                      className={styles.slider}
+                    />
+                  </div>
 
-              <div className={styles.controlGroup}>
-                <label className={styles.controlLabel}>Rotation: {rotation}°</label>
-                <input
-                  type="range"
-                  min={-180}
-                  max={180}
-                  step={1}
-                  value={rotation}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRotation(Number(e.target.value))}
-                  className={styles.slider}
-                />
-              </div>
+                  <div className={styles.controlGroup}>
+                    <label className={styles.controlLabel}>Rotation: {rotation}°</label>
+                    <input
+                      type="range"
+                      min={-180}
+                      max={180}
+                      step={1}
+                      value={rotation}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRotation(Number(e.target.value))}
+                      className={styles.slider}
+                    />
+                  </div>
+                </>
+              )}
+
+              {isFreeMode && (
+                <div className={styles.freeHint}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  Drag the box to move it. Drag any handle to resize freely.
+                </div>
+              )}
 
               <div className={styles.actionButtons}>
                 <button className={styles.cropBtn} onClick={handleCrop} disabled={isCropping}>
