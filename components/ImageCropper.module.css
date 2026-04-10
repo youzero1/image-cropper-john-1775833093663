@@ -1,0 +1,246 @@
+.container {
+  width: 100%;
+  max-width: 900px;
+}
+
+.uploadArea {
+  border: 2px dashed #667eea;
+  border-radius: 16px;
+  padding: 64px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.uploadArea:hover {
+  background: rgba(102, 126, 234, 0.12);
+  border-color: #764ba2;
+}
+
+.uploadIcon {
+  color: #667eea;
+  margin-bottom: 16px;
+}
+
+.uploadText {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #ddd;
+  margin-bottom: 6px;
+}
+
+.uploadSubText {
+  font-size: 0.875rem;
+  color: #888;
+}
+
+.editorWrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.cropSection {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cropContainer {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  background: #111;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.controls {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.controlLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.aspectButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aspectBtn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.08);
+  color: #ccc;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+  border: 1px solid transparent;
+}
+
+.aspectBtn:hover {
+  background: rgba(102, 126, 234, 0.25);
+  color: #fff;
+}
+
+.aspectBtnActive {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.15);
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.5);
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.5);
+}
+
+.actionButtons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cropBtn {
+  flex: 1;
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.1s;
+  min-width: 140px;
+}
+
+.cropBtn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.cropBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.resetBtn {
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.08);
+  color: #ccc;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.15);
+  transition: background 0.2s;
+}
+
+.resetBtn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.previewSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.previewTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ddd;
+}
+
+.previewImageWrapper {
+  max-width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  background: #111;
+}
+
+.previewImage {
+  display: block;
+  max-width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+}
+
+.downloadBtn {
+  display: flex;
+  align-items: center;
+  padding: 12px 28px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #11998e, #38ef7d);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.downloadBtn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 600px) {
+  .cropContainer {
+    height: 280px;
+  }
+  .actionButtons {
+    flex-direction: column;
+  }
+}
